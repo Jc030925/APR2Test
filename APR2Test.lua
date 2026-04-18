@@ -1,4 +1,4 @@
--- [[ AR2: MOUSE-MOVE AIM + ESP + FREEZE ZOMBIES ]] --
+-- [[ AR2: MOUSE-MOVE AIM + ESP + WALLBANG ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -11,7 +11,7 @@ _G.ESP = false
 _G.ShowName = false
 _G.ShowBox = false
 _G.ShowDist = false
-_G.FreezeZombies = false
+_G.Wallbang = false -- Eto na yung papalit sa Freeze Zombies
 _G.MaxDistESP = 1500
 _G.MaxDistAim = 400
 
@@ -35,7 +35,7 @@ MainFrame.Active = true
 MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
--- Right Shift to Toggle Menu
+-- Right Shift Toggle
 UIS.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
         MainFrame.Visible = not MainFrame.Visible
@@ -117,12 +117,12 @@ createToggle("Enable Player ESP", 85, "ESP")
 createToggle("Show Name", 125, "ShowName")
 createToggle("Show Distance", 165, "ShowDist")
 createToggle("Show Box (Highlight)", 205, "ShowBox")
-createToggle("Freeze Zombies", 245, "FreezeZombies") -- Health Bar pinalitan
+createToggle("Wallbang (Bullet TP)", 245, "Wallbang") -- Eto ang papalit sa Freeze Zombies
 
 createSlider("Max Aimbot Dist", 295, 10, 1000, "MaxDistAim")
 createSlider("Max ESP Dist", 355, 10, 5000, "MaxDistESP")
 
--- 3. LOGIC (Aimbot & Freeze)
+-- 3. LOGIC (Aimbot & Wallbang Logic)
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -131,7 +131,7 @@ local function getClosest()
             local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
             if d <= _G.MaxDistAim then
                 local pos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
-                if vis then
+                if vis or _G.Wallbang then -- Kung naka-Wallbang, kahit 'di kita (vis) sa camera, itutuloy ang aim
                     local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
                     if mag < dist then target = p.Character[AimPart]; dist = mag end
                 end
@@ -140,6 +140,17 @@ local function getClosest()
     end
     return target
 end
+
+-- Wallbang/Raycast Hook
+local oldIndex
+oldIndex = hookmetamethod(game, "__index", function(self, key)
+    if _G.Wallbang and not checkcaller() and key == "Raycast" then
+        return function(...)
+            return nil -- Pinipigilan nito ang bala na tumama sa static objects (walls)
+        end
+    end
+    return oldIndex(self, key)
+end)
 
 -- 4. MAIN LOOP
 RS.RenderStepped:Connect(function()
@@ -162,7 +173,7 @@ RS.RenderStepped:Connect(function()
 
             local gui = char:FindFirstChild("AR2_Text_ESP")
             local pos, vis = Camera:WorldToViewportPoint(root.Position)
-            if _G.ESP and vis and dist <= _G.MaxDistESP then
+            if _G.ESP and (vis or _G.Wallbang) and dist <= _G.MaxDistESP then
                 if not gui then
                     gui = Instance.new("BillboardGui", char); gui.Name = "AR2_Text_ESP"; gui.AlwaysOnTop = true; gui.Size = UDim2.new(4,0,5,0)
                     local t = Instance.new("TextLabel", gui); t.Name = "L"; t.Size = UDim2.new(1,0,0,40); t.Position = UDim2.new(0,0,-0.4,0); t.BackgroundTransparency = 1; t.TextColor3 = Color3.new(1,1,1); t.Font = "GothamBold"; t.TextSize = 11
@@ -173,23 +184,6 @@ RS.RenderStepped:Connect(function()
                 if _G.ShowDist then display = display .. "[" .. math.floor(dist) .. "m]" end
                 gui.L.Text = display
             elseif gui then gui.Enabled = false end
-        end
-    end
-
-    -- Zombie Freeze Logic
-    if _G.FreezeZombies then
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj:FindFirstChild("ZombieTag") or (obj:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(obj)) then
-                local root = obj:FindFirstChild("HumanoidRootPart")
-                if root then root.Anchored = true end
-            end
-        end
-    else
-        for _, obj in pairs(workspace:GetChildren()) do
-            if obj:FindFirstChild("ZombieTag") or (obj:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(obj)) then
-                local root = obj:FindFirstChild("HumanoidRootPart")
-                if root then root.Anchored = false end
-            end
         end
     end
 
