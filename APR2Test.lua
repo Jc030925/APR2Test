@@ -1,4 +1,4 @@
--- [[ AR2: OPTIMIZED MOUSE-MOVE AIM + ESP + WALLBANG ]] --
+-- [[ AR2: STABLE MOUSE-MOVE AIM + ESP + WALLBANG ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -115,12 +115,12 @@ createToggle("Enable Player ESP", 85, "ESP")
 createToggle("Show Name", 125, "ShowName")
 createToggle("Show Distance", 165, "ShowDist")
 createToggle("Show Box (Highlight)", 205, "ShowBox")
-createToggle("TRUE Wallbang", 245, "Wallbang") 
+createToggle("Wallbang (No Clip)", 245, "Wallbang") 
 
 createSlider("Max Aimbot Dist", 295, 10, 1000, "MaxDistAim")
 createSlider("Max ESP Dist", 355, 10, 5000, "MaxDistESP")
 
--- 3. OPTIMIZED LOGIC
+-- 3. LOGIC (Closest Player)
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -129,6 +129,7 @@ local function getClosest()
             local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
             if d <= _G.MaxDistAim then
                 local pos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
+                -- If Wallbang is ON, aim even if not visible
                 if vis or _G.Wallbang then
                     local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
                     if mag < dist then target = p.Character[AimPart]; dist = mag end
@@ -139,28 +140,11 @@ local function getClosest()
     return target
 end
 
--- WALLBANG EXPLOIT (Smooth, No Lag)
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    
-    if _G.Wallbang and method == "Raycast" and not checkcaller() then
-        local params = args[3]
-        if typeof(params) == "RaycastParams" then
-            -- Pinipilit ang bala na i-ignore ang static world (Map)
-            params.FilterType = Enum.RaycastFilterType.Include
-            params.FilterDescendantsInstances = {workspace:FindFirstChild("Characters"), workspace:FindFirstChild("Zombies")}
-        end
-    end
-    return oldNamecall(self, unpack(args))
-end)
-
 -- 4. MAIN LOOP
 RS.RenderStepped:Connect(function()
     if not LP.Character then return end
     
-    -- Player ESP Logic (Nanatiling simple para hindi lag)
+    -- Player ESP
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local char = p.Character
@@ -188,6 +172,17 @@ RS.RenderStepped:Connect(function()
                 if _G.ShowDist then display = display .. "[" .. math.floor(dist) .. "m]" end
                 gui.L.Text = display
             elseif gui then gui.Enabled = false end
+        end
+    end
+
+    -- STABLE WALLBANG: Temporarily moves bullet blocking objects to a different folder
+    -- or ignores collision during shooting.
+    if _G.Wallbang then
+        local map = workspace:FindFirstChild("Architectural")
+        if map then
+            for _, v in pairs(map:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanQuery = false end
+            end
         end
     end
 
