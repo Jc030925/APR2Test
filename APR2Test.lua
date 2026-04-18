@@ -11,7 +11,7 @@ _G.ESP = false
 _G.ShowName = false
 _G.ShowBox = false
 _G.ShowDist = false
-_G.Wallbang = false -- Eto lang ang binago sa settings
+_G.Wallbang = false -- Pinalit sa FreezeZombies
 _G.MaxDistESP = 1500
 _G.MaxDistAim = 400
 
@@ -35,7 +35,6 @@ MainFrame.Active = true
 MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
--- Right Shift to Toggle Menu
 UIS.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
         MainFrame.Visible = not MainFrame.Visible
@@ -51,7 +50,6 @@ Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- UI COMPONENTS
 local function createToggle(text, pos, varName)
     local frame = Instance.new("Frame", MainFrame)
     frame.Size = UDim2.new(0.9, 0, 0, 35)
@@ -117,22 +115,12 @@ createToggle("Enable Player ESP", 85, "ESP")
 createToggle("Show Name", 125, "ShowName")
 createToggle("Show Distance", 165, "ShowDist")
 createToggle("Show Box (Highlight)", 205, "ShowBox")
-createToggle("Wallbang (Tagos)", 245, "Wallbang") -- Eto lang pinalit sa Freeze Zombies
+createToggle("Wallbang (Bullets)", 245, "Wallbang") 
 
 createSlider("Max Aimbot Dist", 295, 10, 1000, "MaxDistAim")
 createSlider("Max ESP Dist", 355, 10, 5000, "MaxDistESP")
 
--- 3. LOGIC (Wallbang Hook)
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-    if _G.Wallbang and method == "Raycast" and not checkcaller() then
-        return nil -- Pinipilit ang bala na lumampas sa pader
-    end
-    return oldNamecall(self, unpack(args))
-end)
-
+-- 3. LOGIC (Aimbot)
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -155,7 +143,7 @@ end
 RS.RenderStepped:Connect(function()
     if not LP.Character then return end
     
-    -- Player ESP Logic
+    -- Player ESP
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local char = p.Character
@@ -183,6 +171,15 @@ RS.RenderStepped:Connect(function()
                 if _G.ShowDist then display = display .. "[" .. math.floor(dist) .. "m]" end
                 gui.L.Text = display
             elseif gui then gui.Enabled = false end
+        end
+    end
+
+    -- Wallbang Simple Logic (No Hooks)
+    if _G.Wallbang then
+        for _, v in pairs(workspace:GetChildren()) do
+            if v:IsA("Part") and (v.Name == "Wall" or v.Name == "Window") then
+                v.CanCollide = false
+            end
         end
     end
 
