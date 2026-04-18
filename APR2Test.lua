@@ -1,4 +1,4 @@
--- [[ AR2: MOUSE-MOVE AIM + ESP + TRUE WALLBANG ]] --
+-- [[ AR2: OPTIMIZED MOUSE-MOVE AIM + ESP + WALLBANG ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -120,7 +120,7 @@ createToggle("TRUE Wallbang", 245, "Wallbang")
 createSlider("Max Aimbot Dist", 295, 10, 1000, "MaxDistAim")
 createSlider("Max ESP Dist", 355, 10, 5000, "MaxDistESP")
 
--- 3. AIMBOT LOGIC
+-- 3. OPTIMIZED LOGIC
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -129,7 +129,6 @@ local function getClosest()
             local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
             if d <= _G.MaxDistAim then
                 local pos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
-                -- TRUE WALLBANG: Kahit 'di kita (vis), mag-a-aimbot basta ON ang Wallbang
                 if vis or _G.Wallbang then
                     local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
                     if mag < dist then target = p.Character[AimPart]; dist = mag end
@@ -140,11 +139,28 @@ local function getClosest()
     return target
 end
 
--- 4. MAIN LOOP (ESP & TRUE WALLBANG)
+-- WALLBANG EXPLOIT (Smooth, No Lag)
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    
+    if _G.Wallbang and method == "Raycast" and not checkcaller() then
+        local params = args[3]
+        if typeof(params) == "RaycastParams" then
+            -- Pinipilit ang bala na i-ignore ang static world (Map)
+            params.FilterType = Enum.RaycastFilterType.Include
+            params.FilterDescendantsInstances = {workspace:FindFirstChild("Characters"), workspace:FindFirstChild("Zombies")}
+        end
+    end
+    return oldNamecall(self, unpack(args))
+end)
+
+-- 4. MAIN LOOP
 RS.RenderStepped:Connect(function()
     if not LP.Character then return end
     
-    -- Player ESP Logic
+    -- Player ESP Logic (Nanatiling simple para hindi lag)
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local char = p.Character
@@ -175,23 +191,7 @@ RS.RenderStepped:Connect(function()
         end
     end
 
-    -- TRUE WALLBANG LOGIC: Tatagos ang bala sa Architectural Objects
-    if _G.Wallbang then
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and (obj.Parent.Name == "Architectural" or obj.Parent.Name == "Map") then
-                obj.CanQuery = false -- Eto ang secret para lumampas ang Raycast (bala)
-            end
-        end
-    else
-        -- I-reset kapag OFF ang button
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and (obj.Parent.Name == "Architectural" or obj.Parent.Name == "Map") then
-                obj.CanQuery = true
-            end
-        end
-    end
-
-    -- Aimbot Execution
+    -- Aimbot (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t then
