@@ -1,4 +1,4 @@
--- [[ AR2: FULL ESP + TOGGLE MENU (RIGHT SHIFT) ]] --
+-- [[ AR2: MOUSE-MOVE AIM + ESP + FREEZE ZOMBIES ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -10,8 +10,8 @@ _G.Aimbot = false
 _G.ESP = false
 _G.ShowName = false
 _G.ShowBox = false
-_G.ShowHealth = false
 _G.ShowDist = false
+_G.FreezeZombies = false
 _G.MaxDistESP = 1500
 _G.MaxDistAim = 400
 
@@ -35,7 +35,7 @@ MainFrame.Active = true
 MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
--- Toggle Menu Visibility (Right Shift)
+-- Right Shift to Toggle Menu
 UIS.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
         MainFrame.Visible = not MainFrame.Visible
@@ -51,7 +51,7 @@ Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
--- UI COMPONENTS (Toggles & Sliders)
+-- UI COMPONENTS
 local function createToggle(text, pos, varName)
     local frame = Instance.new("Frame", MainFrame)
     frame.Size = UDim2.new(0.9, 0, 0, 35)
@@ -117,12 +117,12 @@ createToggle("Enable Player ESP", 85, "ESP")
 createToggle("Show Name", 125, "ShowName")
 createToggle("Show Distance", 165, "ShowDist")
 createToggle("Show Box (Highlight)", 205, "ShowBox")
-createToggle("Show Health Bar", 245, "ShowHealth")
+createToggle("Freeze Zombies", 245, "FreezeZombies") -- Health Bar pinalitan
 
 createSlider("Max Aimbot Dist", 295, 10, 1000, "MaxDistAim")
 createSlider("Max ESP Dist", 355, 10, 5000, "MaxDistESP")
 
--- 3. LOGIC
+-- 3. LOGIC (Aimbot & Freeze)
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -141,58 +141,59 @@ local function getClosest()
     return target
 end
 
+-- 4. MAIN LOOP
 RS.RenderStepped:Connect(function()
     if not LP.Character then return end
     
+    -- Player ESP Logic
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local char = p.Character
             local root = char.HumanoidRootPart
-            local hum = char:FindFirstChild("Humanoid")
             local dist = (LP.Character.HumanoidRootPart.Position - root.Position).Magnitude
             
-            -- Box/Highlight Logic
             local hl = char:FindFirstChild("AR2_Highlight")
             if _G.ESP and _G.ShowBox and dist <= _G.MaxDistESP then
                 if not hl then
-                    hl = Instance.new("Highlight", char)
-                    hl.Name = "AR2_Highlight"
-                    hl.FillColor = Color3.fromRGB(255, 0, 0)
-                    hl.FillTransparency = 0.5
-                    hl.OutlineColor = Color3.new(1, 1, 1)
+                    hl = Instance.new("Highlight", char); hl.Name = "AR2_Highlight"; hl.FillColor = Color3.fromRGB(255, 0, 0); hl.FillTransparency = 0.5
                 end
                 hl.Enabled = true
-            elseif hl then
-                hl.Enabled = false
-            end
+            elseif hl then hl.Enabled = false end
 
-            -- Text/Health Logic
             local gui = char:FindFirstChild("AR2_Text_ESP")
             local pos, vis = Camera:WorldToViewportPoint(root.Position)
-            
             if _G.ESP and vis and dist <= _G.MaxDistESP then
                 if not gui then
                     gui = Instance.new("BillboardGui", char); gui.Name = "AR2_Text_ESP"; gui.AlwaysOnTop = true; gui.Size = UDim2.new(4,0,5,0)
-                    local t = Instance.new("TextLabel", gui); t.Name = "L"; t.Size = UDim2.new(1,0,0,40); t.Position = UDim2.new(0,0,-0.4,0); t.BackgroundTransparency = 1; t.TextColor3 = Color3.new(1,1,1); t.Font = "GothamBold"; t.TextSize = 11; t.TextStrokeTransparency = 0
-                    local h = Instance.new("Frame", gui); h.Name = "H"; h.Size = UDim2.new(0.05,0,1,0); h.Position = UDim2.new(-0.2,0,0,0); h.BorderSizePixel = 0
+                    local t = Instance.new("TextLabel", gui); t.Name = "L"; t.Size = UDim2.new(1,0,0,40); t.Position = UDim2.new(0,0,-0.4,0); t.BackgroundTransparency = 1; t.TextColor3 = Color3.new(1,1,1); t.Font = "GothamBold"; t.TextSize = 11
                 end
                 gui.Enabled = true
-                gui.H.Visible = _G.ShowHealth
-                if hum then 
-                    gui.H.Size = UDim2.new(0.05, 0, hum.Health/hum.MaxHealth, 0)
-                    gui.H.BackgroundColor3 = Color3.fromHSV(hum.Health/hum.MaxHealth * 0.3, 1, 1)
-                end
-                
                 local display = ""
                 if _G.ShowName then display = display .. p.Name .. "\n" end
                 if _G.ShowDist then display = display .. "[" .. math.floor(dist) .. "m]" end
                 gui.L.Text = display
-            elseif gui then
-                gui.Enabled = false
+            elseif gui then gui.Enabled = false end
+        end
+    end
+
+    -- Zombie Freeze Logic
+    if _G.FreezeZombies then
+        for _, obj in pairs(workspace:GetChildren()) do
+            if obj:FindFirstChild("ZombieTag") or (obj:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(obj)) then
+                local root = obj:FindFirstChild("HumanoidRootPart")
+                if root then root.Anchored = true end
+            end
+        end
+    else
+        for _, obj in pairs(workspace:GetChildren()) do
+            if obj:FindFirstChild("ZombieTag") or (obj:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(obj)) then
+                local root = obj:FindFirstChild("HumanoidRootPart")
+                if root then root.Anchored = false end
             end
         end
     end
 
+    -- Aimbot (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t then
