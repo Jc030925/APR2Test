@@ -1,4 +1,4 @@
--- [[ AR2: MOUSE-MOVE AIM + ESP + WORKING WALLBANG ]] --
+-- [[ AR2: STABLE MOUSE-MOVE AIM + ESP ]] --
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local RS = game:GetService("RunService")
@@ -11,7 +11,6 @@ _G.ESP = false
 _G.ShowName = false
 _G.ShowBox = false
 _G.ShowDist = false
-_G.Wallbang = false 
 _G.MaxDistESP = 1500
 _G.MaxDistAim = 400
 
@@ -27,7 +26,7 @@ ScreenGui.Name = "AR2_MouseUI"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 240, 0, 460) 
+MainFrame.Size = UDim2.new(0, 240, 0, 420) -- Ginawang mas maikli dahil inalis ang button
 MainFrame.Position = UDim2.new(0.02, 0, 0.3, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 16, 20)
 MainFrame.BorderSizePixel = 0
@@ -35,6 +34,7 @@ MainFrame.Active = true
 MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
+-- Right Shift to Toggle Menu
 UIS.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
         MainFrame.Visible = not MainFrame.Visible
@@ -43,13 +43,14 @@ end)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "     AR2 SETTINGS (RShift)"
+Title.Text = "     AR2 STABLE (RShift)"
 Title.TextColor3 = Color3.fromRGB(180, 180, 180)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
+-- UI COMPONENTS
 local function createToggle(text, pos, varName)
     local frame = Instance.new("Frame", MainFrame)
     frame.Size = UDim2.new(0.9, 0, 0, 35)
@@ -115,29 +116,11 @@ createToggle("Enable Player ESP", 85, "ESP")
 createToggle("Show Name", 125, "ShowName")
 createToggle("Show Distance", 165, "ShowDist")
 createToggle("Show Box (Highlight)", 205, "ShowBox")
-createToggle("Wallbang (Bullet Bypass)", 245, "Wallbang") 
 
-createSlider("Max Aimbot Dist", 295, 10, 1000, "MaxDistAim")
-createSlider("Max ESP Dist", 355, 10, 5000, "MaxDistESP")
+createSlider("Max Aimbot Dist", 255, 10, 1000, "MaxDistAim")
+createSlider("Max ESP Dist", 315, 10, 5000, "MaxDistESP")
 
--- 3. WALLBANG HOOK (FireServer Bypass)
-local mt = getrawmetatable(game)
-local oldNamecall = mt.__namecall
-setreadonly(mt, false)
-
-mt.__namecall = newcclosure(function(self, ...)
-    local method = getnamecallmethod()
-    local args = {...}
-
-    if _G.Wallbang and method == "FireServer" and tostring(self) == "BulletHit" then
-        -- Binabago ang 'hit' material para laging player o zombie ang tamaan
-        return oldNamecall(self, unpack(args))
-    end
-    return oldNamecall(self, ...)
-end)
-setreadonly(mt, true)
-
--- 4. LOGIC (Aimbot & ESP)
+-- 3. LOGIC (Closest Player)
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -146,7 +129,7 @@ local function getClosest()
             local d = (LP.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
             if d <= _G.MaxDistAim then
                 local pos, vis = Camera:WorldToViewportPoint(p.Character[AimPart].Position)
-                if vis or _G.Wallbang then
+                if vis then
                     local mag = (Vector2.new(pos.X, pos.Y) - UIS:GetMouseLocation()).Magnitude
                     if mag < dist then target = p.Character[AimPart]; dist = mag end
                 end
@@ -156,9 +139,11 @@ local function getClosest()
     return target
 end
 
+-- 4. MAIN LOOP
 RS.RenderStepped:Connect(function()
     if not LP.Character then return end
     
+    -- Player ESP Logic
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local char = p.Character
@@ -175,7 +160,7 @@ RS.RenderStepped:Connect(function()
 
             local gui = char:FindFirstChild("AR2_Text_ESP")
             local pos, vis = Camera:WorldToViewportPoint(root.Position)
-            if _G.ESP and (vis or _G.Wallbang) and dist <= _G.MaxDistESP then
+            if _G.ESP and vis and dist <= _G.MaxDistESP then
                 if not gui then
                     gui = Instance.new("BillboardGui", char); gui.Name = "AR2_Text_ESP"; gui.AlwaysOnTop = true; gui.Size = UDim2.new(4,0,5,0)
                     local t = Instance.new("TextLabel", gui); t.Name = "L"; t.Size = UDim2.new(1,0,0,40); t.Position = UDim2.new(0,0,-0.4,0); t.BackgroundTransparency = 1; t.TextColor3 = Color3.new(1,1,1); t.Font = "GothamBold"; t.TextSize = 11
@@ -189,6 +174,7 @@ RS.RenderStepped:Connect(function()
         end
     end
 
+    -- Aimbot (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t then
