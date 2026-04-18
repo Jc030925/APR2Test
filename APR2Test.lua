@@ -11,7 +11,7 @@ _G.ESP = false
 _G.ShowName = false
 _G.ShowBox = false
 _G.ShowDist = false
-_G.Wallbang = false 
+_G.Wallbang = false -- Eto lang ang binago sa settings
 _G.MaxDistESP = 1500
 _G.MaxDistAim = 400
 
@@ -35,7 +35,7 @@ MainFrame.Active = true
 MainFrame.Draggable = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
--- Right Shift Toggle
+-- Right Shift to Toggle Menu
 UIS.InputBegan:Connect(function(input, gpe)
     if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
         MainFrame.Visible = not MainFrame.Visible
@@ -117,12 +117,22 @@ createToggle("Enable Player ESP", 85, "ESP")
 createToggle("Show Name", 125, "ShowName")
 createToggle("Show Distance", 165, "ShowDist")
 createToggle("Show Box (Highlight)", 205, "ShowBox")
-createToggle("Wallbang (No Clip)", 245, "Wallbang") 
+createToggle("Wallbang (Tagos)", 245, "Wallbang") -- Eto lang pinalit sa Freeze Zombies
 
 createSlider("Max Aimbot Dist", 295, 10, 1000, "MaxDistAim")
 createSlider("Max ESP Dist", 355, 10, 5000, "MaxDistESP")
 
--- 3. LOGIC (Aimbot & Wallbang Raycast)
+-- 3. LOGIC (Wallbang Hook)
+local oldNamecall
+oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+    if _G.Wallbang and method == "Raycast" and not checkcaller() then
+        return nil -- Pinipilit ang bala na lumampas sa pader
+    end
+    return oldNamecall(self, unpack(args))
+end)
+
 local function getClosest()
     local target, dist = nil, math.huge
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -141,26 +151,11 @@ local function getClosest()
     return target
 end
 
--- Wallbang/Bullet Logic (Ignore Map Geometry)
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local args = {...}
-    local method = getnamecallmethod()
-    if _G.Wallbang and method == "Raycast" and not checkcaller() then
-        local params = args[3]
-        if params and typeof(params) == "RaycastParams" then
-            params.FilterType = Enum.RaycastFilterType.Exclude
-            -- Dito tinatanggal ang Map/Pader sa collision detection ng bala
-            params.FilterDescendantsInstances = {workspace:FindFirstChild("Map"), workspace:FindFirstChild("Architectural")}
-        end
-    end
-    return oldNamecall(self, unpack(args))
-end)
-
 -- 4. MAIN LOOP
 RS.RenderStepped:Connect(function()
     if not LP.Character then return end
     
+    -- Player ESP Logic
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
             local char = p.Character
@@ -191,6 +186,7 @@ RS.RenderStepped:Connect(function()
         end
     end
 
+    -- Aimbot (Right Click)
     if _G.Aimbot and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
         local t = getClosest()
         if t then
