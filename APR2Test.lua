@@ -15,7 +15,7 @@ _G.MaxDistESP = 1500
 _G.MaxDistAim = 400
 
 local AimPart = "Head"
-local Sensitivity = 1 
+local Sensitivity = 2 
 
 -- 2. UI MENU SETUP
 local ScreenGui = LP.PlayerGui:FindFirstChild("AR2_MouseUI")
